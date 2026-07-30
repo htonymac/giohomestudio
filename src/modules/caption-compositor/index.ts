@@ -194,6 +194,8 @@ export interface CaptionPngBatchInput {
     captionPreset?: string | null;
     fontOverride?: string | null;
     fontSizeScale?: number;
+    captionX?: number;
+    captionY?: number;
     animation?: CaptionAnimation | string;
     narrationText?: string | null;
     showNarration?: boolean;
@@ -233,6 +235,8 @@ export async function renderCommercialCaptionPngs(
         preset: (s.captionPreset ?? "realEstate") as PresetName,
         fontOverride: s.fontOverride ?? undefined,
         fontSizeScale: s.fontSizeScale ?? 0.7,  // default 70% — smaller than baked preset sizes
+        x: s.captionX,
+        y: s.captionY,
         aspectRatio,
       });
       const pngPath = path.join(workDir, `cap_${s.frameId}.png`);

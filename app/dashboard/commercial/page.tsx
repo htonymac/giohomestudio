@@ -49,7 +49,9 @@ interface SlideEnhancement {
   preset?: string;
   level?: number;         // 1-100 per-slide
   orientation?: "auto" | "portrait" | "landscape";
-  captionPosition?: "top" | "center" | "bottom";
+  captionPosition?: "top" | "center" | "bottom" | "custom";
+  captionX?: number;           // custom placement %, 0–100 (only when position="custom")
+  captionY?: number;
   captionPreset?: PresetName;  // caption compositor style preset
   fontFamily?: string;
   fontSize?: number;
@@ -1772,6 +1774,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                               captionPreset={(s.enhancementSettings?.captionPreset ?? "realEstate") as PresetName}
                               fontOverride={s.enhancementSettings?.fontFamily ?? null}
                               fontSizeScale={s.enhancementSettings?.fontSizeScale ?? 0.7}
+                              captionX={s.enhancementSettings?.captionX ?? 50}
+                              captionY={s.enhancementSettings?.captionY ?? 85}
                               aspectRatio={(project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1"}
                               previewWidth={previewStyle.width as number}
                               previewHeight={previewStyle.height as number}
@@ -2201,17 +2205,54 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 />
 
                 {/* Caption position */}
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[10px] text-[#6060a0] mr-1">Position:</span>
-                  {(["top", "center", "bottom"] as const).map(pos => (
-                    <button key={pos} type="button"
-                      onClick={() => patchSlideEnhancement(selectedSlide.id, { captionPosition: pos })}
-                      className={`flex-1 py-0.5 rounded text-[10px] border transition-colors capitalize ${
-                        (selectedSlide.enhancementSettings?.captionPosition ?? "bottom") === pos
-                          ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10"
-                          : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
-                      }`}>{pos}</button>
-                  ))}
+                <div className="mt-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-[#6060a0] mr-1">Position:</span>
+                    {(["top", "center", "bottom", "custom"] as const).map(pos => (
+                      <button key={pos} type="button"
+                        onClick={() => patchSlideEnhancement(selectedSlide.id, { captionPosition: pos })}
+                        className={`flex-1 py-0.5 rounded text-[10px] border transition-colors capitalize ${
+                          (selectedSlide.enhancementSettings?.captionPosition ?? "bottom") === pos
+                            ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10"
+                            : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                        }`}>{pos === "custom" ? "Drag" : pos}</button>
+                    ))}
+                  </div>
+
+                  {selectedSlide.enhancementSettings?.captionPosition === "custom" && (() => {
+                    const cx = selectedSlide.enhancementSettings?.captionX ?? 50;
+                    const cy = selectedSlide.enhancementSettings?.captionY ?? 85;
+                    const setXY = (x: number, y: number) => patchSlideEnhancement(selectedSlide.id, {
+                      captionX: Math.max(0, Math.min(100, Math.round(x))),
+                      captionY: Math.max(0, Math.min(100, Math.round(y))),
+                    });
+                    const onMap = (e: React.MouseEvent<HTMLDivElement>) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setXY(((e.clientX - r.left) / r.width) * 100, ((e.clientY - r.top) / r.height) * 100);
+                    };
+                    const ar = project.aspectRatio ?? "9:16";
+                    const arCss = ar === "16:9" ? "16 / 9" : ar === "1:1" ? "1 / 1" : "9 / 16";
+                    return (
+                      <div className="mt-1.5">
+                        <div
+                          onClick={onMap}
+                          onMouseMove={e => { if (e.buttons === 1) onMap(e); }}
+                          style={{ position: "relative", width: "100%", aspectRatio: arCss, maxHeight: 170, margin: "0 auto", background: "#0d0d1a", border: "1px solid #2a2a40", borderRadius: 6, cursor: "crosshair", overflow: "hidden" }}>
+                          <div style={{ position: "absolute", inset: "10%", border: "1px dashed #1a1a2e", borderRadius: 2 }} />
+                          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#1a1a2e" }} />
+                          <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "#1a1a2e" }} />
+                          <div style={{ position: "absolute", left: `${cx}%`, top: `${cy}%`, transform: "translate(-50%,-50%)", background: "#7c5cfc", color: "#fff", fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid #fff", pointerEvents: "none" }}>caption</div>
+                        </div>
+                        <div className="flex gap-2 mt-1 items-center">
+                          <label className="text-[10px] text-[#6060a0]">X</label>
+                          <input type="number" min={0} max={100} value={cx} onChange={e => setXY(Number(e.target.value), cy)} className="w-12 bg-[#0d0d1a] border border-[#2a2a40] rounded px-1.5 py-0.5 text-[10px] text-[#c0c0e0]" />
+                          <label className="text-[10px] text-[#6060a0]">Y</label>
+                          <input type="number" min={0} max={100} value={cy} onChange={e => setXY(cx, Number(e.target.value))} className="w-12 bg-[#0d0d1a] border border-[#2a2a40] rounded px-1.5 py-0.5 text-[10px] text-[#c0c0e0]" />
+                          <span className="text-[9px] text-[#404060]">% · click or drag on the box</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Caption style preset */}

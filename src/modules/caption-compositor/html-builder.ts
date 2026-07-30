@@ -30,6 +30,7 @@ function parseLines(text: string): { headline: string; sublines: string[] } {
 function justifyContent(pos: CaptionPosition): string {
   if (pos === "top")    return "flex-start";
   if (pos === "center") return "center";
+  // "custom" cards are absolutely placed, so layer flex is irrelevant.
   return "flex-end";
 }
 
@@ -60,9 +61,22 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
   const justify    = justifyContent(position);
   const gradient   = buildGradient(preset.gradient, position);
 
+  // Custom = free-placed box at (x,y)% of the frame (drag/custom). Otherwise a
+  // full-width banner at top/center/bottom.
+  const custom = position === "custom";
+  const cx = Math.max(0, Math.min(100, input.x ?? 50));
+  const cy = Math.max(0, Math.min(100, input.y ?? 85));
+
   // For center: symmetric vertical padding; for top/bottom: asymmetric
   const padTop    = position === "center" ? 28 : position === "top" ? preset.padBottom : preset.padTop;
   const padBottom = position === "center" ? 28 : position === "top" ? preset.padTop    : preset.padBottom;
+
+  // Custom card is a centred, rounded box floated at (cx,cy); banner is edge-to-edge.
+  const cardLayout = custom
+    ? `position: absolute; left: ${cx}%; top: ${cy}%; transform: translate(-50%, -50%);
+       max-width: 82%; width: auto; border-radius: 16px; align-items: center; text-align: center;`
+    : ``;
+  const cardBg = custom ? "rgba(0,0,0,0.55)" : gradient;
 
   const sublineHtml = sublines
     .map(l => `    <p class="sub">${escapeHtml(l)}</p>`)
@@ -89,7 +103,7 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
     justify-content: ${justify};
   }
   .card {
-    background: ${gradient};
+    background: ${cardBg};
     padding: ${padTop}px ${preset.padSide}px ${padBottom}px;
     max-height: ${preset.maxCardHeight};
     overflow: hidden;
@@ -97,6 +111,7 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
     flex-direction: column;
     gap: ${preset.blockGap}px;
     flex-shrink: 0;
+    ${cardLayout}
   }
   .hl {
     font-family: ${fontStack};

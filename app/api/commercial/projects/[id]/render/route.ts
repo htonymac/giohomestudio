@@ -84,6 +84,8 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     captionPreset: string | null;
     fontOverride: string | null;
     fontSizeScale: number;
+    captionX: number | undefined;
+    captionY: number | undefined;
     motionPreset: string | undefined;
     animation: CaptionAnimation;
     narrationText: string | null;
@@ -107,6 +109,8 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
         captionPreset:   (typeof enh?.captionPreset   === "string" ? enh.captionPreset   : null),
         fontOverride:    (typeof enh?.fontFamily      === "string" ? enh.fontFamily      : null),
         fontSizeScale:   (typeof enh?.fontSizeScale   === "number" ? enh.fontSizeScale   : 0.7),
+        captionX:        (typeof enh?.captionX        === "number" ? enh.captionX        : undefined),
+        captionY:        (typeof enh?.captionY        === "number" ? enh.captionY        : undefined),
         motionPreset:    (typeof enh?.motionPreset    === "string" ? enh.motionPreset    : undefined),
         animation:       (typeof enh?.captionAnimation === "string" ? enh.captionAnimation : "fade-up") as CaptionAnimation,
         narrationText:   s.narrationLine ?? null,
@@ -132,6 +136,8 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
       captionPreset:   "promo",
       fontOverride:    null,
       fontSizeScale:   0.7,
+      captionX:        undefined,
+      captionY:        undefined,
       motionPreset:    undefined,
       animation:       "fade-up",
       narrationText:   null,
