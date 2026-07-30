@@ -252,12 +252,13 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   let narrationText = rawNarration;
   if (rawNarration) {
     const brand = project.brandName ? `Brand: ${project.brandName}. ` : "";
-    // Length the script to the VIDEO's duration instead of a fixed 60-word cap
-    // (which finished ~23s into a 52s video, leaving a silent tail). Commercial
-    // VO ≈ 2.6 words/sec; aim for ~92% of the video so it fills it without rushing
-    // or overrunning. Clamp so very short/long videos stay sensible.
-    const totalVideoSec = rawSlides.reduce((a, s) => a + s.durationMs, 0) / 1000;
-    const targetWords = Math.min(320, Math.max(45, Math.round(totalVideoSec * 2.6 * 0.92)));
+    // Length the script to the VIDEO's ACTUAL duration instead of a fixed 60-word
+    // cap (which left a silent tail). Use cumulSec+tDur — the real rendered length
+    // after transition overlaps — NOT the raw slide-duration sum, which is ~1s per
+    // transition longer and made the narration overrun the video. Commercial VO
+    // ≈ 2.5 words/sec; aim for 90% so it fills the video but stays just under it.
+    const totalVideoSec = cumulSec + tDur;
+    const targetWords = Math.min(320, Math.max(45, Math.round(totalVideoSec * 2.5 * 0.9)));
     const targetSpeechSec = Math.round(targetWords / 2.6);
     const llmResult = await callLLM(
       `Write a natural commercial voiceover script from these slide notes. It will be spoken over a ${Math.round(totalVideoSec)}-second video, so write about ${targetWords} words (~${targetSpeechSec} seconds of speech) — enough to cover most of the video at a relaxed pace, not rushed. Flow smoothly across the property/scenes. No headers, no bullet points — just the spoken words.\n\nSlide notes:\n${rawNarration}`,
