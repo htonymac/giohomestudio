@@ -1030,7 +1030,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [selectedEdgeVoice, setSelectedEdgeVoice] = useState("en-US-AriaNeural");
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
   const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
-  const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string }>>([]);
+  const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string; gender?: string; age?: string }>>([]);
+  const [voiceGender, setVoiceGender] = useState<"all" | "man" | "woman">("all");
+  const [voiceAge, setVoiceAge] = useState<"all" | "young" | "mid" | "old">("all");
   useEffect(() => {
     fetch("/api/voices").then(r => r.json()).then(d => { if (Array.isArray(d?.voices)) setElevenVoices(d.voices); }).catch(() => {});
   }, []);
@@ -3446,9 +3448,33 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           {voiceEngine === "elevenlabs" && elevenVoices.length > 0 && (
             <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
               <p className="text-xs font-semibold text-[#b090ff] mb-2">Premium Voice (ElevenLabs — pick a narrator)</p>
-              <p className="text-[10px] text-[#6060a0] mb-3">Specific premium narrators, used at render when ElevenLabs is available (needs API quota). Falls back to Piper otherwise.</p>
+              <p className="text-[10px] text-[#6060a0] mb-2">Filter by gender and age, then pick a narrator. Used at render when ElevenLabs is available (needs API quota); falls back to Piper otherwise.</p>
+
+              {/* Gender + age filters */}
+              <div className="flex flex-wrap gap-1.5 mb-1">
+                <span className="text-[10px] text-[#6060a0] mr-1 self-center">Gender:</span>
+                {([["all", "All"], ["man", "Men"], ["woman", "Women"]] as const).map(([g, lbl]) => (
+                  <button key={g} type="button" onClick={() => setVoiceGender(g)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors ${voiceGender === g ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>{lbl}</button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className="text-[10px] text-[#6060a0] mr-1 self-center">Age:</span>
+                {([["all", "All"], ["young", "Young"], ["mid", "Mid"], ["old", "Old"]] as const).map(([a, lbl]) => (
+                  <button key={a} type="button" onClick={() => setVoiceAge(a)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors ${voiceAge === a ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>{lbl}</button>
+                ))}
+              </div>
+
+              {(() => {
+                const filtered = elevenVoices.filter(v =>
+                  (voiceGender === "all" || v.gender === voiceGender) &&
+                  (voiceAge === "all" || v.age === voiceAge)
+                );
+                if (filtered.length === 0) return <p className="text-[10px] text-[#6060a0] mb-1">No voices match — try a different gender/age.</p>;
+                return (
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto">
-                {elevenVoices.map(v => (
+                {filtered.map(v => (
                   <button
                     key={v.id}
                     type="button"
@@ -3460,10 +3486,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     }`}
                   >
                     <span className="font-medium">{v.name}</span>
-                    {(v.accent || v.category) && <span className="block text-[9px] text-[#6060a0]">{[v.category, v.accent].filter(Boolean).join(" · ")}</span>}
+                    {(v.gender || v.age || v.accent) && <span className="block text-[9px] text-[#6060a0]">{[
+                      v.gender === "man" ? "Man" : v.gender === "woman" ? "Woman" : null,
+                      v.age === "young" ? "Young" : v.age === "mid" ? "Mid" : v.age === "old" ? "Old" : null,
+                      v.accent,
+                    ].filter(Boolean).join(" · ")}</span>}
                   </button>
                 ))}
               </div>
+                );
+              })()}
             </div>
           )}
 

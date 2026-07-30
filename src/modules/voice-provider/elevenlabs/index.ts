@@ -114,7 +114,7 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
     }
   }
 
-  async listVoices(): Promise<Array<{ id: string; name: string }>> {
+  async listVoices(): Promise<Array<{ id: string; name: string; gender?: string; age?: string }>> {
     const apiKey = getElevenLabsKey();
     if (!apiKey) return [];
 
@@ -123,9 +123,14 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
         headers: { "xi-api-key": apiKey },
       });
 
-      return (response.data?.voices ?? []).map((v: { voice_id: string; name: string }) => ({
+      // ElevenLabs tags each voice with labels.gender ("male"/"female") and
+      // labels.age ("young"/"middle_aged"/"old"). Surface them (normalised to
+      // man/woman + young/mid/old) so the UI can filter by gender + age.
+      return (response.data?.voices ?? []).map((v: { voice_id: string; name: string; labels?: { gender?: string; age?: string } }) => ({
         id: v.voice_id,
         name: v.name,
+        gender: v.labels?.gender === "male" ? "man" : v.labels?.gender === "female" ? "woman" : undefined,
+        age: v.labels?.age === "young" ? "young" : v.labels?.age === "old" ? "old" : v.labels?.age ? "mid" : undefined,
       }));
     } catch {
       return [];
