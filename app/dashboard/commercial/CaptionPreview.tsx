@@ -127,9 +127,8 @@ export default function CaptionPreview({
                 left: `${captionX}%`,
                 top: `${captionY}%`,
                 transform: "translate(-50%, -50%)",
-                maxWidth: "82%",
+                width: "82%",
                 borderRadius: 16,
-                alignItems: "center" as const,
                 textAlign: "center" as const,
               } : {}),
             }}

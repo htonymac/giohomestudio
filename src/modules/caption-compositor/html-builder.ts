@@ -72,9 +72,11 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
   const padBottom = position === "center" ? 28 : position === "top" ? preset.padTop    : preset.padBottom;
 
   // Custom card is a centred, rounded box floated at (cx,cy); banner is edge-to-edge.
+  // Fixed 82% width (not auto) so the text uses the room and reads like the banner
+  // instead of shrinking to a cramped, over-wrapped little box.
   const cardLayout = custom
     ? `position: absolute; left: ${cx}%; top: ${cy}%; transform: translate(-50%, -50%);
-       max-width: 82%; width: auto; border-radius: 16px; align-items: center; text-align: center;`
+       width: 82%; border-radius: 16px; text-align: center;`
     : ``;
   const cardBg = custom ? "rgba(0,0,0,0.55)" : gradient;
 
