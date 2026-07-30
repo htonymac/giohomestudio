@@ -1602,11 +1602,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
       <div className="flex items-center gap-3 mb-3 flex-shrink-0">
         <button onClick={onBack} className="text-[#6060a0] hover:text-white transition-colors text-sm">← Projects</button>
         <h1 className="text-lg font-bold text-white flex-1 truncate">{project.projectName}</h1>
-        {saveStatus !== "idle" && (
-          <span className={`text-xs ${saveStatus === "saving" ? "text-[#6060a0]" : "text-green-400"}`}>
-            {saveStatus === "saving" ? "Saving…" : "Saved ✓"}
-          </span>
-        )}
+        <button
+          onClick={() => void flushSaves()}
+          title="Your work auto-saves. Click to save right now."
+          className={`text-xs px-2.5 py-0.5 rounded-full border transition-colors ${
+            saveStatus === "saving"
+              ? "text-[#6060a0] border-[#2a2a40] cursor-default"
+              : "text-green-400 border-green-700/40 hover:bg-green-900/20"
+          }`}>
+          {saveStatus === "saving" ? "Saving…" : "Saved ✓"}
+        </button>
         <span className="text-xs text-[#6060a0] border border-[#2a2a40] px-2 py-0.5 rounded-full">{project.aspectRatio}</span>
         <button
           onClick={handleRender}
