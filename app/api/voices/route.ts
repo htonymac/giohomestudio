@@ -102,7 +102,7 @@ function deriveAge(cat?: string, quality?: string): "young" | "mid" | "old" | un
   if (cat || quality) return "mid";
   return undefined;
 }
-function enrichVoice(v: { id: string; name: string; gender?: string; age?: string }) {
+function enrichVoice(v: { id: string; name: string; gender?: string; age?: string; previewUrl?: string }) {
   const meta = KNOWN_VOICE_META[v.id];
   const gender = v.gender ?? deriveGender(meta?.category);
   const age = v.age ?? deriveAge(meta?.category, meta?.quality);
