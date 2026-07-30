@@ -1030,9 +1030,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [selectedEdgeVoice, setSelectedEdgeVoice] = useState("en-US-AriaNeural");
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
   const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
-  const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string; gender?: string; age?: string }>>([]);
+  const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string; gender?: string; age?: string; previewUrl?: string }>>([]);
   const [voiceGender, setVoiceGender] = useState<"all" | "man" | "woman">("all");
   const [voiceAge, setVoiceAge] = useState<"all" | "young" | "mid" | "old">("all");
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  function playVoicePreview(url?: string) {
+    if (!url) return;
+    if (previewAudioRef.current) previewAudioRef.current.pause();
+    const a = new Audio(url);
+    previewAudioRef.current = a;
+    a.play().catch(() => {});
+  }
   useEffect(() => {
     fetch("/api/voices").then(r => r.json()).then(d => { if (Array.isArray(d?.voices)) setElevenVoices(d.voices); }).catch(() => {});
   }, []);
@@ -1334,6 +1342,23 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
     const merged: SlideEnhancement = { ...(slide?.enhancementSettings ?? {}), ...enh };
     patchSlide(slideId, { enhancementSettings: merged });
   }, [project.slides, patchSlide]);
+
+  // "Use for all" — copy THIS slide's caption + font style (not the text) to every
+  // other slide, keeping each slide's own image tweaks (brightness, etc.). Flushes
+  // so it all persists at once.
+  const applyCaptionStyleToAll = useCallback((sourceId: string) => {
+    const src = project.slides.find(s => s.id === sourceId)?.enhancementSettings;
+    if (!src) return;
+    const style: Partial<SlideEnhancement> = {
+      captionPosition: src.captionPosition, captionX: src.captionX, captionY: src.captionY,
+      captionPreset: src.captionPreset, fontFamily: src.fontFamily, fontSizeScale: src.fontSizeScale,
+      fontBold: src.fontBold, fontItalic: src.fontItalic, fontUnderline: src.fontUnderline,
+      captionAnimation: src.captionAnimation,
+    };
+    project.slides.forEach(sl => { if (sl.id !== sourceId) patchSlideEnhancement(sl.id, style); });
+    void flushSaves();
+    setSaveStatus("saved");
+  }, [project.slides, patchSlideEnhancement, flushSaves]);
 
   async function handleTranslateField(slideId: string, field: "caption" | "narration", text: string) {
     setTranslateState({ slideId, field, translated: "", loading: true, lang: translateLang });
@@ -2323,6 +2348,15 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       }`}>{({ realEstate: "Real Est.", luxury: "Luxury", promo: "Promo", minimal: "✦ Minimal", business: "Business", corporate: "Corporate" } as Record<string, string>)[p]}</button>
                   ))}
                 </div>
+
+                {/* Apply this slide's caption + font style to every slide */}
+                {project.slides.length > 1 && (
+                  <button type="button" onClick={() => applyCaptionStyleToAll(selectedSlide.id)}
+                    title="Copy this slide's position, style, font, size, colour and bold/italic to ALL slides (keeps each slide's own text)"
+                    className="mt-1.5 w-full py-1 rounded text-[10px] border border-[#7c5cfc]/50 text-[#b090ff] bg-[#7c5cfc]/10 hover:bg-[#7c5cfc]/20 transition-colors">
+                    ⇩ Use this caption + font style for ALL slides
+                  </button>
+                )}
 
                 {polishState && !polishState.loading && polishState.slideId === selectedSlide.id && polishState.field === "caption" && (
                   polishState.error ? (
@@ -3475,23 +3509,29 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 return (
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto">
                 {filtered.map(v => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => { setProject(prev => ({ ...prev, voiceId: v.id })); patchProject({ voiceId: v.id }); }}
-                    className={`text-left p-2 rounded-lg border text-[11px] transition-colors ${
-                      project.voiceId === v.id
-                        ? "border-[#7c5cfc] bg-[#7c5cfc]/10 text-[#b090ff]"
-                        : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
-                    }`}
-                  >
-                    <span className="font-medium">{v.name}</span>
-                    {(v.gender || v.age || v.accent) && <span className="block text-[9px] text-[#6060a0]">{[
-                      v.gender === "man" ? "Man" : v.gender === "woman" ? "Woman" : null,
-                      v.age === "young" ? "Young" : v.age === "mid" ? "Mid" : v.age === "old" ? "Old" : null,
-                      v.accent,
-                    ].filter(Boolean).join(" · ")}</span>}
-                  </button>
+                  <div key={v.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => { setProject(prev => ({ ...prev, voiceId: v.id })); patchProject({ voiceId: v.id }); }}
+                      className={`w-full text-left p-2 pr-7 rounded-lg border text-[11px] transition-colors ${
+                        project.voiceId === v.id
+                          ? "border-[#7c5cfc] bg-[#7c5cfc]/10 text-[#b090ff]"
+                          : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                      }`}
+                    >
+                      <span className="font-medium">{v.name}</span>
+                      {(v.gender || v.age || v.accent) && <span className="block text-[9px] text-[#6060a0]">{[
+                        v.gender === "man" ? "Man" : v.gender === "woman" ? "Woman" : null,
+                        v.age === "young" ? "Young" : v.age === "mid" ? "Mid" : v.age === "old" ? "Old" : null,
+                        v.accent,
+                      ].filter(Boolean).join(" · ")}</span>}
+                    </button>
+                    {v.previewUrl && (
+                      <button type="button" title="Listen to a sample"
+                        onClick={e => { e.stopPropagation(); playVoicePreview(v.previewUrl); }}
+                        className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full border border-[#2a2a40] text-[10px] text-[#b090ff] hover:bg-[#7c5cfc]/20">▶</button>
+                    )}
+                  </div>
                 ))}
               </div>
                 );

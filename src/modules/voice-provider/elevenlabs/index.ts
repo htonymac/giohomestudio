@@ -114,7 +114,7 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
     }
   }
 
-  async listVoices(): Promise<Array<{ id: string; name: string; gender?: string; age?: string }>> {
+  async listVoices(): Promise<Array<{ id: string; name: string; gender?: string; age?: string; previewUrl?: string }>> {
     const apiKey = getElevenLabsKey();
     if (!apiKey) return [];
 
@@ -124,13 +124,15 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
       });
 
       // ElevenLabs tags each voice with labels.gender ("male"/"female") and
-      // labels.age ("young"/"middle_aged"/"old"). Surface them (normalised to
-      // man/woman + young/mid/old) so the UI can filter by gender + age.
-      return (response.data?.voices ?? []).map((v: { voice_id: string; name: string; labels?: { gender?: string; age?: string } }) => ({
+      // labels.age ("young"/"middle_aged"/"old"), plus a preview_url sample clip.
+      // Surface them (normalised man/woman + young/mid/old) so the UI can filter
+      // by gender + age and play a listen-preview.
+      return (response.data?.voices ?? []).map((v: { voice_id: string; name: string; preview_url?: string; labels?: { gender?: string; age?: string } }) => ({
         id: v.voice_id,
         name: v.name,
         gender: v.labels?.gender === "male" ? "man" : v.labels?.gender === "female" ? "woman" : undefined,
         age: v.labels?.age === "young" ? "young" : v.labels?.age === "old" ? "old" : v.labels?.age ? "mid" : undefined,
+        previewUrl: v.preview_url,
       }));
     } catch {
       return [];
