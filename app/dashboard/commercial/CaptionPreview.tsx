@@ -18,6 +18,9 @@ interface CaptionPreviewProps {
   /** Caption size multiplier (the "Caption size" slider). Must match the render:
    *  html-builder does preset.headlineSize * fontSizeScale. Default 0.7. */
   fontSizeScale?: number;
+  /** Custom placement percent (0–100) when captionPosition === "custom". */
+  captionX?: number;
+  captionY?: number;
   /** Preview container width in px */
   previewWidth: number;
   /** Preview container height in px */
@@ -36,6 +39,8 @@ export default function CaptionPreview({
   fontOverride,
   aspectRatio,
   fontSizeScale = 0.7,
+  captionX = 50,
+  captionY = 85,
   previewWidth,
   previewHeight,
 }: CaptionPreviewProps) {
@@ -54,12 +59,16 @@ export default function CaptionPreview({
 
   const fontStack = fontOverride ? `"${fontOverride}", ${preset.fontStack}` : preset.fontStack;
 
+  const custom = captionPosition === "custom";
+
   // Match HTML builder gradient logic
   let gradient = preset.gradient;
   if (captionPosition === "top") {
     gradient = preset.gradient.replace("to top", "to bottom");
   } else if (captionPosition === "center") {
     gradient = "rgba(0,0,0,0.78)";
+  } else if (custom) {
+    gradient = "rgba(0,0,0,0.55)";
   }
 
   // Match HTML builder padding logic
@@ -113,6 +122,16 @@ export default function CaptionPreview({
               flexDirection: "column",
               gap: preset.blockGap,
               flexShrink: 0,
+              ...(custom ? {
+                position: "absolute" as const,
+                left: `${captionX}%`,
+                top: `${captionY}%`,
+                transform: "translate(-50%, -50%)",
+                maxWidth: "82%",
+                borderRadius: 16,
+                alignItems: "center" as const,
+                textAlign: "center" as const,
+              } : {}),
             }}
           >
             {/* Headline */}

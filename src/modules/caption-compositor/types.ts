@@ -2,7 +2,9 @@
 // Text roles and layout types for the HTML-based commercial caption system.
 
 export type AspectRatio = "9:16" | "16:9" | "1:1";
-export type CaptionPosition = "top" | "center" | "bottom";
+// "custom" = free-placed at (x,y) percent of the frame (drag/custom), like the
+// Text & Image overlays. top/center/bottom stay full-width banners.
+export type CaptionPosition = "top" | "center" | "bottom" | "custom";
 export type PresetName = "realEstate" | "luxury" | "promo" | "minimal" | "business" | "corporate";
 
 /** Output dimensions per aspect ratio — must match createSlideshowStatic DIMS2 */
@@ -25,6 +27,10 @@ export interface CaptionRenderInput {
   aspectRatio: AspectRatio;
   /** Scale factor applied to preset font sizes — 0.5 = half, 1.0 = full (default), 1.5 = 150% */
   fontSizeScale?: number;
+  /** Custom placement (only when position === "custom"): percent of frame, 0–100.
+   *  x = horizontal centre, y = vertical centre. Defaults 50 / 85. */
+  x?: number;
+  y?: number;
 }
 
 export interface CaptionComposeInput {
@@ -36,6 +42,9 @@ export interface CaptionComposeInput {
   captionPreset?: PresetName;
   fontOverride?: string;
   fontSizeScale?: number;
+  /** Custom placement percent (0–100) when captionPosition === "custom". */
+  captionX?: number;
+  captionY?: number;
   animation?: CaptionAnimation;
   /** Narration line shown as subtitle below the caption (optional) */
   narrationText?: string | null;
