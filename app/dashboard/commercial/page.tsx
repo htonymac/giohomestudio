@@ -1047,6 +1047,10 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [rightPanelWidth, setRightPanelWidth] = useState(320);
   const dragStateRef = useRef<{ startX: number; startW: number } | null>(null);
   const saveTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Accumulate a merged patch PER slide so rapid successive edits are never
+  // dropped by the shared debounce (the old code kept only the last patch).
+  const pendingSavesRef = useRef<Map<string, Partial<CommercialSlide>>>(new Map());
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const fileRef       = useRef<HTMLInputElement>(null);
   const swipeRef      = useRef<number | null>(null);
   const batchImportRef = useRef<HTMLInputElement>(null);
@@ -1269,21 +1273,58 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   }
 
   // ── Slide field auto-save (debounced 800ms) ─────────────────────────────
+  // Flush every pending per-slide patch to the DB right now (also called on
+  // unmount / before-render so nothing in flight is lost).
+  const flushSaves = useCallback(async () => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
+    const pending = pendingSavesRef.current;
+    if (pending.size === 0) return;
+    const entries = Array.from(pending.entries());
+    pending.clear();
+    setSaveStatus("saving");
+    try {
+      const results = await Promise.all(entries.map(([slideId, patch]) =>
+        fetch(`/api/commercial/projects/${project.id}/slides/${slideId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
+        }).catch(() => null)
+      ));
+      setSaveStatus(results.every(r => r && r.ok) ? "saved" : "idle");
+    } catch { setSaveStatus("idle"); }
+  }, [project.id]);
+
   const patchSlide = useCallback((slideId: string, patch: Partial<CommercialSlide>) => {
     setProject(prev => ({
       ...prev,
       slides: prev.slides.map(s => s.id === slideId ? { ...s, ...patch } : s),
     }));
+    // Accumulate (merge) so multiple fields edited within the debounce window all persist.
+    const prev = pendingSavesRef.current.get(slideId) ?? {};
+    pendingSavesRef.current.set(slideId, { ...prev, ...patch });
+    setSaveStatus("saving");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      const res = await fetch(`/api/commercial/projects/${project.id}/slides/${slideId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) console.error("[commercial] slide auto-save failed", res.status);
-    }, 800);
-  }, [project.id]);
+    saveTimerRef.current = setTimeout(() => { void flushSaves(); }, 800);
+  }, [flushSaves]);
+
+  // Never lose in-flight edits: flush on unmount (Back to projects) and use a
+  // keepalive PATCH on tab close / refresh so the last edit still lands.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      const pending = pendingSavesRef.current;
+      if (pending.size === 0) return;
+      for (const [slideId, patch] of pending) {
+        fetch(`/api/commercial/projects/${project.id}/slides/${slideId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch), keepalive: true,
+        }).catch(() => {});
+      }
+      pending.clear();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      void flushSaves();
+    };
+  }, [project.id, flushSaves]);
 
   // Merge-patch enhancementSettings (preserves existing keys)
   const patchSlideEnhancement = useCallback((slideId: string, enh: Partial<SlideEnhancement>) => {
@@ -1458,6 +1499,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   async function handleRender() {
     try { await requireGate(); } catch { return; }
     setRenderMsg("");
+    // Flush any pending slide edits so the render uses the very latest state.
+    await flushSaves();
     try {
       // Always save voice settings to DB before render — server reads project.voiceId at render time.
       // Do not skip: an empty voiceId intentionally clears any previously saved voice so the default is used.
@@ -1559,6 +1602,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
       <div className="flex items-center gap-3 mb-3 flex-shrink-0">
         <button onClick={onBack} className="text-[#6060a0] hover:text-white transition-colors text-sm">← Projects</button>
         <h1 className="text-lg font-bold text-white flex-1 truncate">{project.projectName}</h1>
+        {saveStatus !== "idle" && (
+          <span className={`text-xs ${saveStatus === "saving" ? "text-[#6060a0]" : "text-green-400"}`}>
+            {saveStatus === "saving" ? "Saving…" : "Saved ✓"}
+          </span>
+        )}
         <span className="text-xs text-[#6060a0] border border-[#2a2a40] px-2 py-0.5 rounded-full">{project.aspectRatio}</span>
         <button
           onClick={handleRender}
