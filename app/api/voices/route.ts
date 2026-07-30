@@ -88,15 +88,29 @@ export const OFFICIALLY_SUPPORTED_LANGUAGES: Record<string, boolean> = {
   pidgin: false, // Nigerian Pidgin — use English model, results vary
 };
 
-function enrichVoice(v: { id: string; name: string }) {
+// Normalise to the two dimensions the UI filters on: gender (man/woman) + age
+// (young/mid/old). Prefer ElevenLabs' own labels (from listVoices); else derive
+// from the known-voice table (category boy/girl or quality youthful/elder).
+function deriveGender(cat?: string): "man" | "woman" | undefined {
+  if (cat === "man" || cat === "boy") return "man";
+  if (cat === "woman" || cat === "girl") return "woman";
+  return undefined;
+}
+function deriveAge(cat?: string, quality?: string): "young" | "mid" | "old" | undefined {
+  if (cat === "boy" || cat === "girl" || quality === "youthful") return "young";
+  if (quality === "elder") return "old";
+  if (cat || quality) return "mid";
+  return undefined;
+}
+function enrichVoice(v: { id: string; name: string; gender?: string; age?: string }) {
   const meta = KNOWN_VOICE_META[v.id];
-  if (!meta) return { ...v };
+  const gender = v.gender ?? deriveGender(meta?.category);
+  const age = v.age ?? deriveAge(meta?.category, meta?.quality);
   return {
     ...v,
-    category: meta.category,
-    quality: meta.quality,
-    accent: meta.accent,
-    languages: meta.languages,
+    gender,
+    age,
+    ...(meta ? { category: meta.category, quality: meta.quality, accent: meta.accent, languages: meta.languages } : {}),
   };
 }
 
